@@ -1,78 +1,49 @@
 #!/bin/bash
-# =============================================================
-#  run_mapreduce.sh - Lance les 3 jobs MapReduce via Hadoop Streaming
-#  Prérequis : cluster Hadoop actif (docker-compose up -d)
-# =============================================================
+DATASET_LOCAL=/tmp/netflix_titles.csv
+DATASET_HDFS=/user/root/netflix/input/netflix_titles.csv
+OUTPUT_BASE=/user/root/netflix/output
+LOCAL_SCRIPT_DIR=/opt/mapreduce
 
-HADOOP_STREAMING_JAR="$HADOOP_HOME/share/hadoop/tools/lib/hadoop-streaming-*.jar"
-HDFS_INPUT="/user/root/netflix/input"
-HDFS_OUTPUT_BASE="/user/root/netflix/output"
-LOCAL_DATA="./dataset/netflix_titles.csv"
+# Créer les répertoires HDFS nécessaires
+hdfs dfs -mkdir -p /user/root/netflix/input
 
-# ============================================================
-# 1. Préparer les données sur HDFS
-# ============================================================
-echo ">>> Création des répertoires HDFS..."
-hdfs dfs -mkdir -p $HDFS_INPUT
+# Copier le dataset dans HDFS (écrase l'ancien si existe)
+hdfs dfs -put -f $DATASET_LOCAL $DATASET_HDFS
 
-echo ">>> Copie du dataset vers HDFS..."
-hdfs dfs -put -f $LOCAL_DATA $HDFS_INPUT/
+# Job 1 : Distribution par genre
+hdfs dfs -rm -r -f ${OUTPUT_BASE}/genre_count
+hadoop jar /opt/hadoop/share/hadoop/tools/lib/hadoop-streaming-*.jar \
+  -D mapreduce.job.reduces=1 \
+  -input $DATASET_HDFS \
+  -output ${OUTPUT_BASE}/genre_count \
+  -mapper "python3 $LOCAL_SCRIPT_DIR/mapper_genre.py" \
+  -reducer "python3 $LOCAL_SCRIPT_DIR/reducer_genre.py"
 
-echo ">>> Vérification :"
-hdfs dfs -ls $HDFS_INPUT
+echo ">>> Job 1 terminé. Résultats :"
+hdfs dfs -cat ${OUTPUT_BASE}/genre_count/part-00000 | head -5
 
-# ============================================================
-# 2. Job 1 : Nombre de contenus par genre
-# ============================================================
-echo ""
-echo ">>> [JOB 1] Comptage par Genre..."
-hdfs dfs -rm -r -f $HDFS_OUTPUT_BASE/genre_count
+# Job 2 : Productions par pays/année
+hdfs dfs -rm -r -f ${OUTPUT_BASE}/country_year
+hadoop jar /opt/hadoop/share/hadoop/tools/lib/hadoop-streaming-*.jar \
+  -D mapreduce.job.reduces=1 \
+  -input $DATASET_HDFS \
+  -output ${OUTPUT_BASE}/country_year \
+  -mapper "python3 $LOCAL_SCRIPT_DIR/mapper_country_year.py" \
+  -reducer "python3 $LOCAL_SCRIPT_DIR/reducer_country_year.py"
 
-hadoop jar $HADOOP_STREAMING_JAR \
-    -files ./mapreduce/mapper_genre.py,./mapreduce/reducer_genre.py \
-    -mapper  "python3 mapper_genre.py" \
-    -reducer "python3 reducer_genre.py" \
-    -input   $HDFS_INPUT/netflix_titles.csv \
-    -output  $HDFS_OUTPUT_BASE/genre_count
+echo ">>> Job 2 terminé. Résultats :"
+hdfs dfs -cat ${OUTPUT_BASE}/country_year/part-00000 | head -5
 
-echo ">>> Résultats Job 1 :"
-hdfs dfs -cat $HDFS_OUTPUT_BASE/genre_count/part-00000 | head -20
+# Job 3 : Durée moyenne par genre (films)
+hdfs dfs -rm -r -f ${OUTPUT_BASE}/duration_avg
+hadoop jar /opt/hadoop/share/hadoop/tools/lib/hadoop-streaming-*.jar \
+  -D mapreduce.job.reduces=1 \
+  -input $DATASET_HDFS \
+  -output ${OUTPUT_BASE}/duration_avg \
+  -mapper "python3 $LOCAL_SCRIPT_DIR/mapper_duration.py" \
+  -reducer "python3 $LOCAL_SCRIPT_DIR/reducer_duration.py"
 
-# ============================================================
-# 3. Job 2 : Productions par pays et par année
-# ============================================================
-echo ""
-echo ">>> [JOB 2] Productions par Pays/Année..."
-hdfs dfs -rm -r -f $HDFS_OUTPUT_BASE/country_year
+echo ">>> Job 3 terminé. Résultats :"
+hdfs dfs -cat ${OUTPUT_BASE}/duration_avg/part-00000 | head -5
 
-hadoop jar $HADOOP_STREAMING_JAR \
-    -files ./mapreduce/mapper_country_year.py,./mapreduce/reducer_country_year.py \
-    -mapper  "python3 mapper_country_year.py" \
-    -reducer "python3 reducer_country_year.py" \
-    -input   $HDFS_INPUT/netflix_titles.csv \
-    -output  $HDFS_OUTPUT_BASE/country_year
-
-echo ">>> Résultats Job 2 :"
-hdfs dfs -cat $HDFS_OUTPUT_BASE/country_year/part-00000 | head -20
-
-# ============================================================
-# 4. Job 3 : Durée moyenne des films par genre
-# ============================================================
-echo ""
-echo ">>> [JOB 3] Durée Moyenne par Genre..."
-hdfs dfs -rm -r -f $HDFS_OUTPUT_BASE/duration_avg
-
-hadoop jar $HADOOP_STREAMING_JAR \
-    -files ./mapreduce/mapper_duration.py,./mapreduce/reducer_duration.py \
-    -mapper  "python3 mapper_duration.py" \
-    -reducer "python3 reducer_duration.py" \
-    -input   $HDFS_INPUT/netflix_titles.csv \
-    -output  $HDFS_OUTPUT_BASE/duration_avg
-
-echo ">>> Résultats Job 3 :"
-hdfs dfs -cat $HDFS_OUTPUT_BASE/duration_avg/part-00000 | head -20
-
-echo ""
-echo ">>> Tous les jobs MapReduce sont terminés !"
-echo ">>> Interface Web HDFS : http://localhost:9870"
-echo ">>> Interface YARN     : http://localhost:8088"
+echo "Tous les jobs MapReduce sont terminés."
