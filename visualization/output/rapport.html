@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rapport Big Data — Netflix & Twitter</title>
+    <style>
+        :root {
+            --primary: #E50914;
+            --bg:      #141414;
+            --card:    #1f1f1f;
+            --text:    #e5e5e5;
+            --muted:   #999;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg);
+               color: var(--text); padding: 2rem; }
+        h1 { color: var(--primary); font-size: 2.5rem; margin-bottom: 0.5rem; }
+        h2 { color: var(--primary); font-size: 1.5rem; margin: 2rem 0 1rem; }
+        h3 { color: #fff; margin-bottom: 0.5rem; }
+        .subtitle { color: var(--muted); font-size: 1.1rem; margin-bottom: 2rem; }
+        .card { background: var(--card); border-radius: 12px; padding: 1.5rem;
+                margin-bottom: 1.5rem; border-left: 4px solid var(--primary); }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+        .badge { display: inline-block; background: var(--primary);
+                 color: white; padding: 0.2rem 0.7rem; border-radius: 99px;
+                 font-size: 0.8rem; margin: 0.2rem; }
+        img { width: 100%; border-radius: 8px; margin-top: 1rem; }
+        code { background: #2a2a2a; padding: 0.2rem 0.5rem; border-radius: 4px;
+               font-family: monospace; color: #E50914; }
+        table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+        th { background: var(--primary); color: white; padding: 0.7rem; text-align: left; }
+        td { padding: 0.6rem; border-bottom: 1px solid #333; }
+        tr:hover td { background: #2a2a2a; }
+        .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+        .stat-box { background: #2a2a2a; border-radius: 8px; padding: 1rem; text-align: center; }
+        .stat-num { font-size: 2rem; font-weight: bold; color: var(--primary); }
+        .stat-label { color: var(--muted); font-size: 0.85rem; }
+        @media (max-width: 768px) { .grid-2, .stat-grid { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    <h1>🎬 Projet Big Data</h1>
+    <p class="subtitle">Analyse Netflix avec Hadoop MapReduce + PySpark + Twitter Streaming</p>
+
+    <div class="stat-grid">
+        <div class="stat-box"><div class="stat-num">8,807</div><div class="stat-label">Contenus Netflix analysés</div></div>
+        <div class="stat-box"><div class="stat-num">3</div><div class="stat-label">Jobs MapReduce</div></div>
+        <div class="stat-box"><div class="stat-num">5</div><div class="stat-label">Analyses PySpark</div></div>
+    </div>
+
+    <h2>🐘 Partie I — Cluster Hadoop (Docker)</h2>
+    <div class="card">
+        <h3>Architecture du Cluster</h3>
+        <table>
+            <tr><th>Conteneur</th><th>Rôle</th><th>Port</th></tr>
+            <tr><td><code>namenode</code></td><td>NameNode HDFS + ResourceManager</td><td>9870, 8088</td></tr>
+            <tr><td><code>datanode1</code></td><td>DataNode 1 (stockage répliqué)</td><td>9864</td></tr>
+            <tr><td><code>datanode2</code></td><td>DataNode 2 (stockage répliqué)</td><td>9865</td></tr>
+        </table>
+        <br>
+        <p>Démarrer le cluster :</p>
+        <code>cd docker && docker-compose up -d</code>
+    </div>
+
+    <h2>📊 Partie II.A — MapReduce sur Netflix</h2>
+    <div class="grid-2">
+        <div class="card">
+            <h3>Dataset : Netflix Movies & TV Shows</h3>
+            <span class="badge">Kaggle</span>
+            <span class="badge">8,807 entrées</span>
+            <span class="badge">12 colonnes</span>
+            <p style="margin-top:1rem; color:var(--muted)">
+                Colonnes : show_id, type, title, director, cast, country,
+                date_added, release_year, rating, duration, listed_in, description
+            </p>
+        </div>
+        <div class="card">
+            <h3>Objectifs d'analyse</h3>
+            <ul style="margin-left:1rem; margin-top:0.5rem; line-height:2">
+                <li>Distribution des contenus par genre et type</li>
+                <li>Tendances de production par pays et année</li>
+                <li>Durée moyenne des films par genre</li>
+            </ul>
+        </div>
+    </div>
+    <img src="00_mapreduce_dashboard.png" alt="Dashboard MapReduce">
+
+    <h2>⚡ Partie II.B — Twitter Streaming (PySpark)</h2>
+    <div class="card">
+        <h3>Architecture du Pipeline</h3>
+        <p style="color:var(--muted); margin-top:0.5rem">
+            Twitter API v2 → Tweepy StreamingClient → Socket TCP (port 9999)
+            → PySpark DStream → TextBlob + MLlib LogisticRegression → Visualisation
+        </p>
+        <br>
+        <table>
+            <tr><th>Champ</th><th>Description</th><th>Exemple</th></tr>
+            <tr><td><code>id</code></td><td>Identifiant unique du tweet</td><td>1234567890</td></tr>
+            <tr><td><code>text</code></td><td>Contenu du tweet</td><td>"PySpark is amazing!"</td></tr>
+            <tr><td><code>timestamp</code></td><td>Horodatage ISO 8601</td><td>2023-05-01T14:30:00</td></tr>
+            <tr><td><code>sentiment</code></td><td>Positif / Négatif / Neutre</td><td>Positif</td></tr>
+            <tr><td><code>polarity</code></td><td>Score TextBlob [-1, 1]</td><td>+0.65</td></tr>
+        </table>
+    </div>
+    <img src="09_streaming_demo.png" alt="Dashboard Streaming">
+
+    <h2>🤖 Algorithme ML — Logistic Regression</h2>
+    <div class="card">
+        <p><strong>Pipeline Spark MLlib :</strong></p>
+        <p style="color:var(--muted); margin-top:0.5rem; line-height:2">
+            <code>Tokenizer</code> → <code>StopWordsRemover</code>
+            → <code>HashingTF</code> (1000 features)
+            → <code>IDF</code> (TF-IDF weighting)
+            → <code>LogisticRegression</code> (C=100, maxIter=20)
+        </p>
+        <br>
+        <p>Lancement streaming :</p>
+        <code>python spark/streaming_twitter.py --simulate</code>
+        <br><br>
+        <p>Avec vraies clés API :</p>
+        <code>export TWITTER_BEARER_TOKEN="..." && python spark/streaming_twitter.py</code>
+    </div>
+
+    <footer style="text-align:center; margin-top:3rem; color:var(--muted)">
+        Projet Big Data — Hadoop + Spark + PySpark Streaming — 2023
+    </footer>
+</body>
+</html>
